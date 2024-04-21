@@ -4,11 +4,24 @@ from replit import clear
 from blessed import Terminal
 
 
+
+grass = "~ "
+wall = "x "
+broken_wall = "- "
+spike = "ㅅ"
+flat_spike = "ㅡ"
+chest = '[]'
+heart = '♡ '
+
+loot = ["hammer", "pickaxe"]
+loot_weights = [1, 1]
+
+
 class World:
 
   def __init__(self, choices, weights, radius):
     self.board = {
-        (0, 0): '~ ',
+        (0, 0): grass,
     }
     self.radius = radius
     self.choices = choices
@@ -32,17 +45,22 @@ class World:
   def print_board(self, x, y):
     visible = self.get_visible_window(x, y)
     for row in visible:
-      print(''.join(row))
-    print()
+      print("|" + "".join(row) + "|")
+
+  def set_board_value(self, coord, value):
+    self.board[(coord[1], coord[0])] = value
 
 
 class Player:
 
-  def __init__(self, icon, coordinates, max_health=3):
+  def __init__(self, icon, coordinates, max_health = 3, hammers = 1, pickaxes = 1):
     self.icon = icon
     self.coordinates = coordinates
     self.max_health = max_health
     self.health = max_health
+    self.hammers = hammers
+    self.pickaxes = pickaxes
+    
 
 
 def display(board, boardrange, players):
@@ -56,7 +74,7 @@ def display(board, boardrange, players):
             boardrange[0][0]][player.coordinates[1] -
                               boardrange[0][1]] = player.icon
   for row in board:
-    print(''.join(row))
+    print("|" + "".join(row) + "|")
 
 
 def center_to_range(center, radius):
@@ -64,38 +82,79 @@ def center_to_range(center, radius):
                                                      center[1] + radius))
 
 
-p = Player(icon='ッ', coordinates=[0, 0])
-p2 = Player(icon='☺ ', coordinates=[3, 3])
-w = World(['~ ', 'x ', 'ㅅ'], [10, 4, 1], 5)
-input("press enter to start")
-while True:  #game loop
+while True:
   clear()
-  board = w.get_visible_window(p.coordinates[0], p.coordinates[1])
-  display(board, center_to_range(p.coordinates, w.radius), [p])
-  with Terminal().cbreak():  #input detection and player movement
-    print("Use WASD to move")
-    move = Terminal().inkey(timeout=1)
-    candidate_move = p.coordinates.copy()
+  p = Player(icon='ツ', coordinates=[0, 0])
+  w = World([grass,wall,spike,chest], [10, 4, 1, 0.01], 5)
 
-    if move == "w":
-      candidate_move[1] -= 1
-    elif move == "s":
-      candidate_move[1] += 1
-    elif move == "a":
-      candidate_move[0] -= 1
-    elif move == "d":
-      candidate_move[0] += 1
+  input("press enter to start")
+  while True:  #game loop
+    clear()
+    board = w.get_visible_window(p.coordinates[0], p.coordinates[1])
+  
+    #sprints out the full display
+    print(f"({p.coordinates[0]}, {p.coordinates[1] * -1})")
+    print(f"HAMMERS: {p.hammers}")
+    print(f"PICKAXES: {p.pickaxes}")
+    print("HEALTH: " + heart * p.health + "X " * (p.max_health - p.health))
+    print("-" * 24)
+    display(board, center_to_range(p.coordinates, w.radius), [p])
+    print("-" * 24)
     
-    if w.get_board_value(candidate_move) == 'x ':
-      candidate_move = p.coordinates
+    with Terminal().cbreak():  #input detection and player movement
+      print("use wasd to move")
+      move = Terminal().inkey(timeout=60)
+      candidate_move = p.coordinates.copy()
+  
+      if move == "w":
+        candidate_move[1] -= 1
+      elif move == "s":
+        candidate_move[1] += 1
+      elif move == "a":
+        candidate_move[0] -= 1
+      elif move == "d":
+        candidate_move[0] += 1
 
-    if w.get_board_value(candidate_move) == 'ㅅ':
-      p.health -= 1
-
-    p.coordinates = candidate_move
-
-  if p.health == 0:
-    print("You died")
-    break
-
-  time.sleep(0.2)
+      if w.get_board_value(candidate_move) == broken_wall:
+        w.set_board_value(candidate_move, grass)
+      
+      if w.get_board_value(candidate_move) == wall:
+        if p.pickaxes > 0:
+          p.pickaxes -= 1
+          w.set_board_value(candidate_move, grass)
+        else:
+          candidate_move = p.coordinates
+  
+      if w.get_board_value(candidate_move) == flat_spike:
+        w.set_board_value(candidate_move, grass)
+      
+      if w.get_board_value(candidate_move) == spike:
+        if p.hammers > 0:
+          p.hammers -= 1
+          w.set_board_value(candidate_move, flat_spike)
+        else:
+          p.health -= 1
+        
+      if w.get_board_value(candidate_move) == chest:
+        chest_loot = random.choices(loot, weights=loot_weights, k=1)
+        
+        if chest_loot == ["hammer"]:
+          p.hammers += random.randint(1,3)
+        elif chest_loot == ["pickaxe"]:
+          p.pickaxes += random.randint(1,3)
+        
+        w.set_board_value(candidate_move, grass)
+        
+  
+      p.coordinates = candidate_move
+        
+    
+    if p.health == 0: #Death
+      clear()
+      display(board, center_to_range(p.coordinates, w.radius), [p])
+      print("you where impaled")
+      print("(x_x)")
+      input("press enter to restart")
+      break
+  
+    time.sleep(0.2)
