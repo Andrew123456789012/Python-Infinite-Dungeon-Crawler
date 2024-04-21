@@ -1,0 +1,101 @@
+import random
+import time
+from replit import clear
+from blessed import Terminal
+
+
+class World:
+
+  def __init__(self, choices, weights, radius):
+    self.board = {
+        (0, 0): '~ ',
+    }
+    self.radius = radius
+    self.choices = choices
+    self.weights = weights
+
+  def get_visible_window(self, x, y):
+    visible = []
+    for i in range(y - self.radius, y + self.radius + 1):
+      row = []
+      for j in range(x - self.radius, x + self.radius + 1):
+        if (i, j) not in self.board:
+          block = random.choices(self.choices, weights=self.weights)[0]
+          self.board[i, j] = block
+        row.append(self.board[i, j])
+      visible.append(row)
+    return visible
+
+  def get_board_value(self, coord):
+    return self.board.get((coord[1], coord[0]), None)
+
+  def print_board(self, x, y):
+    visible = self.get_visible_window(x, y)
+    for row in visible:
+      print(''.join(row))
+    print()
+
+
+class Player:
+
+  def __init__(self, icon, coordinates, max_health=3):
+    self.icon = icon
+    self.coordinates = coordinates
+    self.max_health = max_health
+    self.health = max_health
+
+
+def display(board, boardrange, players):
+  # board is a list of lists containing the environment that the current player can see
+  # boardrange is a tuple of the rectangular range of the board that the player can see - i.e., ((-4,-4), (4,4)) for a board whose coordinates in both directions range from -4 to 4
+  # players is a list of the active players
+  for player in players:
+    if boardrange[0][0] <= player.coordinates[0] <= boardrange[1][
+        0] and boardrange[0][1] <= player.coordinates[1] <= boardrange[1][1]:
+      board[player.coordinates[0] -
+            boardrange[0][0]][player.coordinates[1] -
+                              boardrange[0][1]] = player.icon
+  for row in board:
+    print(''.join(row))
+
+
+def center_to_range(center, radius):
+  return ((center[0] - radius, center[1] - radius), (center[0] + radius,
+                                                     center[1] + radius))
+
+
+p = Player(icon='ッ', coordinates=[0, 0])
+p2 = Player(icon='☺ ', coordinates=[3, 3])
+w = World(['~ ', 'x ', 'ㅅ'], [10, 4, 1], 5)
+input("press enter to start")
+while True:  #game loop
+  clear()
+  board = w.get_visible_window(p.coordinates[0], p.coordinates[1])
+  display(board, center_to_range(p.coordinates, w.radius), [p])
+  with Terminal().cbreak():  #input detection and player movement
+    print("Use WASD to move")
+    move = Terminal().inkey(timeout=1)
+    candidate_move = p.coordinates.copy()
+
+    if move == "w":
+      candidate_move[1] -= 1
+    elif move == "s":
+      candidate_move[1] += 1
+    elif move == "a":
+      candidate_move[0] -= 1
+    elif move == "d":
+      candidate_move[0] += 1
+    
+    if w.get_board_value(candidate_move) == 'x ':
+      candidate_move = p.coordinates
+
+    if w.get_board_value(candidate_move) == 'ㅅ':
+      p.health -= 1
+
+    p.coordinates = candidate_move
+
+  if p.health == 0:
+    print("You died")
+    break
+
+  time.sleep(0.2)
