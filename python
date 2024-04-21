@@ -121,7 +121,7 @@ while True:
       if w.get_board_value(candidate_move) == wall:
         if p.pickaxes > 0:
           p.pickaxes -= 1
-          w.set_board_value(candidate_move, grass)
+          w.set_board_value(candidate_move, broken_wall)
         else:
           candidate_move = p.coordinates
   
